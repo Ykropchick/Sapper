@@ -19,7 +19,8 @@ class Main:
         self.screen = pg.display.set_mode((self.Width, self.Height))
         self.Nums_Colors = {-1: 'red', 0: "green", 1: 'blue', 2: 'green', 3: 'red', 4: 'darkblue'}
         self.covered_field = []  # -1 is a flag, 0 is close square, 1 is open square, 2 is a flag
-        self.field = []  # -1 is a bomb, [0-4] is a number of bordered bombs
+        self.field = []  # -1 is a bomb, [0-4] is a number of encircling bombs
+        self.mine_position = set()
         self.mine = pg.image.load("images/mine.png")
         self.Font = pg.font.Font(None, 20)
         self.clock = pg.time.Clock()
@@ -27,7 +28,7 @@ class Main:
         self.running = True
 
     def get_neighbours(self, row, col):
-        # Counting the number of bordered bomb
+        # Counting the count of bomb that encircling square
         neighbours = []
         if row > 0:
             neighbours.append((row - 1, col))
@@ -69,13 +70,13 @@ class Main:
         # Do the beginning settings of board
         self.field = [[0 for _ in range(self.Cols)] for _ in range(self.Rows)]
         self.covered_field = [[0 for _ in range(self.Cols)] for _ in range(self.Rows)]
-        mine_position = set()
-        while len(mine_position) < self.Mines:
+        self.mine_position = set()
+        while len(self.mine_position) < self.Mines:
             row = random.randint(0, self.Rows - 1)
             col = random.randint(0, self.Cols - 1)
-            mine_position.add((row, col))
+            self.mine_position.add((row, col))
             self.field[row][col] = -1
-        for mine in mine_position:
+        for mine in self.mine_position:
             neighbours = self.get_neighbours(*mine)
             for r, c in neighbours:
                 if self.field[r][c] != -1:
@@ -92,14 +93,17 @@ class Main:
                 if self.covered_field[i][j] > 0:
                     pg.draw.rect(self.screen, "lightgray", (x, y, self.size, self.size))
                     pg.draw.rect(self.screen, "black", (x, y, self.size, self.size), 2)
+                    # check is this a mine
                     if self.field[i][j] == -1:
                         self.screen.blit(self.mine, (x, y))
                         continue
+                    # check is this an empty square
                     if self.field[i][j] == 0:
                         continue
                     text = self.Font.render(f'{self.field[i][j]}', True, self.Nums_Colors[self.field[i][j]])
                     self.screen.blit(text, (x + (self.size // 2 - text.get_width() // 2),
                                             y + (self.size // 2 - text.get_height() // 2)))
+                # check if the square is a flag
                 if self.covered_field[i][j] == -1:
                     pg.draw.rect(self.screen, "red", (x, y, self.size, self.size))
                     pg.draw.rect(self.screen, "black", (x, y, self.size, self.size), 2)
@@ -127,7 +131,19 @@ class Main:
             self.click = 0
             self.lost()
 
+    def check_the_win(self):
+        for r, c in self.mine_position:
+            if all(i in (1, 2) for i in self.covered_field[r][c]):
+                font = pg.font.Font(None, 50)
+                text = font.render('You Win', True, "red")
+                rect = text.get_rect(center=(self.Width // 2, self.Height // 2))
+                self.screen.blit(text, rect)
+                pg.display.update()
+                pg.time.wait(5000 // 2)
+                self.do_matrix_field()
+
     def do_flag(self, mouse_pos):
+        # Do the flag
         mx, my = mouse_pos
         row = int(my // self.size)
         col = int(mx // self.size)
