@@ -14,19 +14,20 @@ class Main:
         self.Rows = 15
         self.Cols = 15
         self.Mines = 15
-        self.size = self.Width // self.Rows
+        self.click = 0
+        self.size = self.Width // self.Rows  # size of squares
         self.screen = pg.display.set_mode((self.Width, self.Height))
         self.Nums_Colors = {-1: 'red', 0: "green", 1: 'blue', 2: 'green', 3: 'red', 4: 'darkblue'}
-        self.covered_field = []
-        self.clock = pg.time.Clock()
-        self.field = []
+        self.covered_field = []  # -1 is a flag, 0 is close square, 1 is open square, 2 is a flag
+        self.field = []  # -1 is a bomb, [0-4] is a number of bordered bombs
         self.mine = pg.image.load("images/mine.png")
         self.Font = pg.font.Font(None, 20)
-        self.click = 0
-        self.running = True
+        self.clock = pg.time.Clock()
         self.FPS = 30
+        self.running = True
 
     def get_neighbours(self, row, col):
+        # Counting the number of bordered bomb
         neighbours = []
         if row > 0:
             neighbours.append((row - 1, col))
@@ -49,6 +50,7 @@ class Main:
         return neighbours
 
     def uncovered_field(self, row, col):
+        # Open all emtpy square ( 0 ) until find the filled ([1-4])
         q = Queue()
         q.put((row, col))
         visited = set()
@@ -56,7 +58,6 @@ class Main:
             current = q.get()
             neighbours = self.get_neighbours(*current)
             for row, col in neighbours:
-                print(self.field[row][col])
                 if (row, col) in visited or self.field[row][col] == -1:
                     continue
                 self.covered_field[row][col] = 1
@@ -65,6 +66,7 @@ class Main:
                 visited.add((row, col))
 
     def do_matrix_field(self):
+        # Do the beginning settings of board
         self.field = [[0 for _ in range(self.Cols)] for _ in range(self.Rows)]
         self.covered_field = [[0 for _ in range(self.Cols)] for _ in range(self.Rows)]
         mine_position = set()
@@ -80,6 +82,7 @@ class Main:
                     self.field[r][c] += 1
 
     def draw_board(self):
+        # Draw the board
         for i in range(self.Cols):
             y = i * self.size
             for j in range(self.Rows):
@@ -97,8 +100,12 @@ class Main:
                     text = self.Font.render(f'{self.field[i][j]}', True, self.Nums_Colors[self.field[i][j]])
                     self.screen.blit(text, (x + (self.size // 2 - text.get_width() // 2),
                                             y + (self.size // 2 - text.get_height() // 2)))
+                if self.covered_field[i][j] == -1:
+                    pg.draw.rect(self.screen, "red", (x, y, self.size, self.size))
+                    pg.draw.rect(self.screen, "black", (x, y, self.size, self.size), 2)
 
     def lost(self):
+        # The case when we click on mine
         font = pg.font.Font(None, 50)
         text = font.render('You lost', True, "red")
         rect = text.get_rect(center=(self.Width // 2, self.Height // 2))
@@ -108,6 +115,7 @@ class Main:
         self.do_matrix_field()
 
     def mouse_clicked(self, mouse_pos):
+        # The actions when we clicked on mouse
         mx, my = mouse_pos
         row = int(my // self.size)
         col = int(mx // self.size)
@@ -119,6 +127,12 @@ class Main:
             self.click = 0
             self.lost()
 
+    def do_flag(self, mouse_pos):
+        mx, my = mouse_pos
+        row = int(my // self.size)
+        col = int(mx // self.size)
+        self.covered_field[row][col] = -1
+
     def mainloop(self):
         self.do_matrix_field()
         while self.running:
@@ -126,7 +140,12 @@ class Main:
                 if event.type == pg.QUIT:
                     self.running = False
                 if event.type == pg.MOUSEBUTTONDOWN:
-                    self.mouse_clicked(pg.mouse.get_pos())
+                    keys = pg.mouse.get_pressed()
+                    mouse_pos = pg.mouse.get_pos()
+                    if keys[0]:
+                        self.mouse_clicked(mouse_pos)
+                    elif keys[2]:
+                        self.do_flag(mouse_pos)
             self.clock.tick(self.FPS)
             self.screen.fill("white")
             self.draw_board()
